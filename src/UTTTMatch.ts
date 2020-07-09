@@ -64,7 +64,7 @@ export default class UTTTMatch implements IMatch {
       this.messageGameEnd(stats);
       this.playNextGame();
     } else {
-      this.endMatch();
+      this.endMatch(stats);
     }
   }
 
@@ -81,13 +81,13 @@ export default class UTTTMatch implements IMatch {
     }
   }
 
-  private endMatch = () => {
-    const stats = this.getGameStats();
-    const winner: 0 | 1 | -1 = stats.wins[0] === stats.wins[1] ? -1 : stats.wins[0] > stats.wins[1] ? 0 : 1;
-    this.sendEndMatchMessages(winner, stats);
+  private endMatch = (stats: Game) => {
+    const matchStats = this.getMatchStats();
+    const winner: 0 | 1 | -1 = matchStats.wins[0] === matchStats.wins[1] ? -1 : matchStats.wins[0] > matchStats.wins[1] ? 0 : 1;
+    this.sendEndMatchMessages(winner, matchStats, stats.stats);
   }
 
-  private getGameStats = () => {
+  private getMatchStats = () => {
     const gamesTied: number = this.gamesCompleted.filter((game: Game) => game.tie).length;
     const gameWonPlayer1: number = this.gamesCompleted.filter((game: Game) => !game.tie && this.players[0] === game.winner).length;
     const gameWonPlayer2: number = this.gamesCompleted.filter((game: Game) => !game.tie && this.players[1] === game.winner).length;
@@ -98,14 +98,14 @@ export default class UTTTMatch implements IMatch {
     };
   }
 
-  private sendEndMatchMessages = (winner: number, stats: any) => {
-    const winningMessage = winner === -1 ? `Match Tie` : `Match Won${this.players[winner]}`;
+  private sendEndMatchMessages = (winner: number, matchStats: any, gameStats: any) => {
+    const winningMessage = winner === -1 ? `Match Tie` : `Match Won ${this.players[winner]}`;
     if (winner !== -1) {
       this.onGameMessageToPlayer(this.players[winner], "match win");
-      this.onGameMessageToPlayer(this.players[1 - winner], "match lose");
+      this.onGameMessageToPlayer(this.players[1 - winner], gameStats.previousMove ? `match lose ${gameStats.previousMove}` : "match lose");
     } else {
-      this.onGameMessageToPlayer(this.players[winner], "match tie");
-      this.onGameMessageToPlayer(this.players[1 - winner], "match tie");
+      this.onGameMessageToPlayer(this.players[winner], gameStats.playedPlayerIndex !== winner ? `match tie ${gameStats.previousMove}` : "match tie");
+      this.onGameMessageToPlayer(this.players[1 - winner], gameStats.playedPlayerIndex === winner ? `match tie ${gameStats.previousMove}` : "match tie");
     }
 
     const matchEndedMessage: Messages.MatchEndedMessage = {
@@ -115,7 +115,7 @@ export default class UTTTMatch implements IMatch {
       options: this.options,
       players: this.players,
       state: "finished",
-      stats,
+      stats: matchStats,
       winner,
     };
     this.outputChannel.sendMatchEnded(matchEndedMessage);
